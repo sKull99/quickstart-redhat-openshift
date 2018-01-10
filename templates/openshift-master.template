@@ -36,6 +36,7 @@
                         "NumberOfMaster",
                         "NumberOfEtcd",
                         "NumberOfNodes",
+                        "AnsibleInstanceType",
                         "MasterInstanceType",
                         "EtcdInstanceType",
                         "NodesInstanceType",
@@ -129,6 +130,9 @@
                 "AnsiblePlaybookGitRepoTag": {
                     "default": "Git Repo Release Version"
                 },
+                "AnsibleInstanceType": {
+                    "default": "Ansible Instance Type"
+                },                
                 "MasterInstanceType": {
                     "default": "Master Instance Type"
                 },
@@ -269,6 +273,24 @@
             "Description": "CIDR block for the VPC",
             "Type": "String"
         },
+        "AnsibleInstanceType": {
+            "Default": "m4.xlarge",
+            "AllowedValues": [
+                "t2.large",
+                "m4.xlarge",
+                "m4.2xlarge",
+                "m4.4xlarge",
+                "m4.10xlarge",
+                "c4.large",
+                "c4.xlarge",
+                "c4.2xlarge",
+                "c4.4xlarge",
+                "c4.8xlarge"
+            ],
+            "ConstraintDescription": "Must contain valid instance type",
+            "Description": "Type of EC2 instance for the Ansible instance",
+            "Type": "String"
+        },        
         "MasterInstanceType": {
             "Default": "m4.xlarge",
             "AllowedValues": [

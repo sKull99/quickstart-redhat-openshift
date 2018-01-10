@@ -36,6 +36,7 @@
                         "NumberOfMaster",
                         "NumberOfEtcd",
                         "NumberOfNodes",
+                        "AnsibleInstanceType",
                         "MasterInstanceType",
                         "EtcdInstanceType",
                         "NodesInstanceType",
@@ -133,6 +134,9 @@
                 "AnsiblePlaybookGitRepoTag": {
                     "default": "Git Repo Release Version"
                 },
+                "AnsibleInstanceType": {
+                    "default": "Ansible Instance Type"
+                },                
                 "MasterInstanceType": {
                     "default": "Master Instance Type"
                 },
@@ -260,6 +264,24 @@
             "Description": "ID of your existing VPC for deployment",
             "Type": "AWS::EC2::VPC::Id"
         },
+        "AnsibleInstanceType": {
+            "Default": "m4.xlarge",
+            "AllowedValues": [
+                "t2.large",
+                "m4.xlarge",
+                "m4.2xlarge",
+                "m4.4xlarge",
+                "m4.10xlarge",
+                "c4.large",
+                "c4.xlarge",
+                "c4.2xlarge",
+                "c4.4xlarge",
+                "c4.8xlarge"
+            ],
+            "ConstraintDescription": "Must contain valid instance type",
+            "Description": "Type of EC2 instance for the Ansible instance",
+            "Type": "String"
+        },        
         "MasterInstanceType": {
             "Default": "m4.xlarge",
             "AllowedValues": [
@@ -790,7 +812,7 @@
                     "Ref": "SetupRoleProfile"
                 },
                 "InstanceType": {
-                    "Ref": "MasterInstanceType"
+                    "Ref": "EtcdInstanceType"
                 },
                 "SecurityGroups": [{
                     "Ref": "OpenShiftSecurityGroup"
@@ -883,6 +905,7 @@
                                 },
                                 "\n",
                                 "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio tuned-profiles-atomic-openshift-node",
+                                yum install wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct
                                 "\n"
                             ]
                         ]
@@ -975,7 +998,7 @@
                     "Ref": "SetupRoleProfile"
                 },
                 "InstanceType": {
-                    "Ref": "MasterInstanceType"
+                    "Ref": "NodesInstanceType"
                 },
                 "SecurityGroups": [{
                     "Ref": "OpenShiftSecurityGroup"
@@ -1547,7 +1570,7 @@
                     "Value": "ansible-configserver"
                 }],
                 "InstanceType": {
-                    "Ref": "MasterInstanceType"
+                    "Ref": "AnsibleInstanceType"
                 },
                 "NetworkInterfaces": [{
                     "DeleteOnTermination": "true",
