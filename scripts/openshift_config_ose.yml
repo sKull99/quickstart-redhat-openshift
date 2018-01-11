@@ -11,9 +11,14 @@ etcd
 ansible_ssh_user=root
 openshift_deployment_type=origin
 containerized=false
+openshift_image_tag='v3.6.0'
+# image_tag sale de docker: https://hub.docker.com/r/openshift/origin-deployer/tags/
+openshift_pkg_version='-3.6.1-1.0.008f2d5'
+# pkg_version sale del repositorio cargado en cada instancia. se busca con yum list openshift_docker_expouse*
 openshift_master_cluster_method=native
 openshift_router_selector='region=infra'
 openshift_registry_selector='region=infra'
+openshift_disable_check=memory_availability,disk_availability
 #openshift_master_api_port=8443
 #openshift_hosted_manage_registry=false
 #openshift_hosted_manage_router=false
