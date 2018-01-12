@@ -50,7 +50,9 @@
                     },
                     "Parameters": [
                         "AnsiblePlaybookType",
-                        "AnsiblePlaybookGitRepoTag"
+                        "AnsiblePlaybookGitRepoTag",
+                        "OpenshiftImageTag",
+                        "OpenshiftPkgVersion"                        
                     ]
                 },
                 {
@@ -133,6 +135,12 @@
                 },
                 "AnsiblePlaybookGitRepoTag": {
                     "default": "Git Repo Release Version"
+                },
+                "OpenshiftImageTag": {
+                    "default": "Openshift origin Docker Image Tag"
+                },
+                "OpenshiftPkgVersion": {
+                    "default": "Openshift yum pkg version"
                 },
                 "AnsibleInstanceType": {
                     "default": "Ansible Instance Type"
@@ -228,7 +236,9 @@
         },
         "RedhatSubscriptionUserName": {
             "Description": "Enter Redhat RHN User Name",
-            "Type": "String"
+            "Type": "String",
+            "AllowedPattern":"^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}$",
+            "ConstraintDescription": "RedHat subscription must be completed."
         },
         "RedhatSubscriptionPassword": {
             "NoEcho": "true",
@@ -237,11 +247,13 @@
         },
         "RedhatSubscriptionPoolID": {
             "Description": "Enter Redhat RHN PoolID",
-            "Type": "String"
+            "Type": "String",
+            "AllowedPattern":"^[a-z0-9]+$",
+            "ConstraintDescription": "RedHat PoolID must be completed."
         },
         "AnsiblePlaybookType": {
-            "Description": "Note:This QuickStart only supports OpenSource-Version for Development Purposes!",
-            "Default": "Subscription-Version",
+            "Description": "Note:This QuickStart supports OpenShift Origin (OpenSource-Version) or OpenShift Enterprise (Subscription-Version). Both requires RedHat Subscription to get dependencies",
+            "Default": "OpenSource-Version",
             "AllowedValues": [
                 "Subscription-Version",
                 "OpenSource-Version"
@@ -250,7 +262,17 @@
         },
         "AnsiblePlaybookGitRepoTag": {
             "Description": "Only Used if [OpenSource-Version] is selected. List of Development Releases available here -> https://github.com/openshift/openshift-ansible/releases",
-            "Default": "3.6.173.0.5-5",
+            "Default": "release-3.6",
+            "Type": "String"
+        },
+        "OpenshiftImageTag": {
+            "Description": "Only Used if [OpenSource-Version] is selected. List of Docker image tags available here -> https://hub.docker.com/r/openshift/origin-deployer/tags/. Please don't forget the format vX.X.X",
+            "Default": "v3.6.0",
+            "Type": "String"
+        },
+        "OpenshiftPkgVersion": {
+            "Description": "Only Used if [OpenSource-Version] is selected. List of Pkg Version listed with yum list openshift_docker_expouse* on each Master/Node/etcd instance. Please don't forget the format -X.X.X-X.X.XXXXXX",
+            "Default": "-3.6.1-1.0.008f2d5",
             "Type": "String"
         },
         "VPCCIDR": {
@@ -348,18 +370,19 @@
             "Default": "3",
             "Description": "This Deployment requires 3 OpenShift Master instances",
             "Type": "Number",
-            "AllowedValues": ["3"]
+            "AllowedValues": ["2","3"]
         },
         "NumberOfEtcd": {
             "Default": "3",
             "Description": "This Deployment requires 3 OpenShift Etcd instances",
             "Type": "Number",
-            "AllowedValues": ["3"]
+            "AllowedValues": ["2","3"]
         },
         "NumberOfNodes": {
             "Default": "3",
             "Description": "The desired capacity for the OpenShift node instances",
-            "Type": "Number"
+            "Type": "Number",
+            "AllowedValues": ["2","3"]            
         }
     },
     "Rules": {
@@ -881,24 +904,27 @@
                                 "\n",
 
                                 "echo \"========================================================================================================================\"\n",
-                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
+                                "PLAYBOOK=\"", {
+                                    "Ref": "AnsiblePlaybookType"
+                                },
+                                "\"\n",
                                 "SCRIPT_PATH=",
                                 {
                                     "Fn::Sub": "s3://${QSS3BucketName}/${QSS3KeyPrefix}"
 
                                 },
                                 "\n",
+                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
                                 "aws s3 cp ${SCRIPT_PATH}scripts/redhat_ose-register.sh  ~/redhat_ose-register.sh \n",
                                 "chmod 755 ~/redhat_ose-register.sh\n",
                                 "qs_retry_command 20 ~/redhat_ose-register.sh ",
                                 {
                                     "Fn::Sub": "${RedhatSubscriptionUserName} ${RedhatSubscriptionPassword} ${RedhatSubscriptionPoolID} "
-
                                 },
                                 "\n",
                                 "echo \"========================================================================================================================\"\n",
-
-                                "yum repolist | grep OpenShift \n",
+                                
+                                "\n",
                                 "# Start cfn-init [GetPublicKey, AddPublicKey]\n",
                                 "cfn-init -v ",
                                 " --stack ",
@@ -912,9 +938,12 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio tuned-profiles-atomic-openshift-node",
-                                yum install wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct
-                                "\n"
+                                "yum install -y ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio",
+                                "\n",
+
+                                "if [ $PLAYBOOK == \"Subscription-Version\" ]; then \n",
+                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs tuned-profiles-atomic-openshift-node",
+                                "fi\n"
                             ]
                         ]
                     }
@@ -1067,19 +1096,22 @@
                                 "\n",
 
                                 "echo \"========================================================================================================================\"\n",
-                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
+                                "PLAYBOOK=\"", {
+                                    "Ref": "AnsiblePlaybookType"
+                                },
+                                "\"\n",
                                 "SCRIPT_PATH=",
                                 {
                                     "Fn::Sub": "s3://${QSS3BucketName}/${QSS3KeyPrefix}"
 
                                 },
                                 "\n",
+                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
                                 "aws s3 cp ${SCRIPT_PATH}scripts/redhat_ose-register.sh  ~/redhat_ose-register.sh \n",
                                 "chmod 755 ~/redhat_ose-register.sh\n",
                                 "qs_retry_command 20 ~/redhat_ose-register.sh ",
                                 {
                                     "Fn::Sub": "${RedhatSubscriptionUserName} ${RedhatSubscriptionPassword} ${RedhatSubscriptionPoolID} "
-
                                 },
                                 "\n",
                                 "echo \"========================================================================================================================\"\n",
@@ -1109,8 +1141,13 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio tuned-profiles-atomic-openshift-node",
-                                "\n"
+                                "yum install -y ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio",
+                                "\n",
+
+                                "if [ $PLAYBOOK == \"Subscription-Version\" ]; then \n",
+                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs tuned-profiles-atomic-openshift-node",
+                                "fi\n"
+
                             ]
                         ]
                     }
@@ -1255,23 +1292,26 @@
                                 "\n",
 
                                 "echo \"========================================================================================================================\"\n",
-                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
+                                "PLAYBOOK=\"", {
+                                    "Ref": "AnsiblePlaybookType"
+                                },
+                                "\"\n",
                                 "SCRIPT_PATH=",
                                 {
                                     "Fn::Sub": "s3://${QSS3BucketName}/${QSS3KeyPrefix}"
 
                                 },
                                 "\n",
+                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
                                 "aws s3 cp ${SCRIPT_PATH}scripts/redhat_ose-register.sh  ~/redhat_ose-register.sh \n",
                                 "chmod 755 ~/redhat_ose-register.sh\n",
                                 "qs_retry_command 20 ~/redhat_ose-register.sh ",
                                 {
                                     "Fn::Sub": "${RedhatSubscriptionUserName} ${RedhatSubscriptionPassword} ${RedhatSubscriptionPoolID} "
-
                                 },
                                 "\n",
                                 "echo \"========================================================================================================================\"\n",
-
+                                
                                 "\n",
                                 "# Start cfn-init [GetPublicKey, AddPublicKey]\n",
                                 "cfn-init -v ",
@@ -1286,8 +1326,12 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio tuned-profiles-atomic-openshift-node",
-                                "\n"
+                                "yum install -y ceph-common conntrack-tools dnsmasq docker docker-client docker-common docker-rhel-push-plugin glusterfs glusterfs-client-xlators glusterfs-fuse glusterfs-libs iptables-services iscsi-initiator-utils iscsi-initiator-utils-iscsiuio",
+                                "\n",
+
+                                "if [ $PLAYBOOK == \"Subscription-Version\" ]; then \n",
+                                "yum install -y atomic-openshift-docker-excluder atomic-openshift-node atomic-openshift-sdn-ovs tuned-profiles-atomic-openshift-node",
+                                "fi\n"
                             ]
                         ]
                     }
@@ -1676,34 +1720,34 @@
 
 
                                 "echo \"========================================================================================================================\"\n",
-                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
+                                "PLAYBOOK=\"", {
+                                    "Ref": "AnsiblePlaybookType"
+                                },
+                                "\"\n",
                                 "SCRIPT_PATH=",
                                 {
                                     "Fn::Sub": "s3://${QSS3BucketName}/${QSS3KeyPrefix}"
 
                                 },
                                 "\n",
+                                "echo \"\t------------------[]Attach to Subscription pool\"\n",
                                 "aws s3 cp ${SCRIPT_PATH}scripts/redhat_ose-register.sh  ~/redhat_ose-register.sh \n",
                                 "chmod 755 ~/redhat_ose-register.sh\n",
                                 "qs_retry_command 20 ~/redhat_ose-register.sh ",
                                 {
                                     "Fn::Sub": "${RedhatSubscriptionUserName} ${RedhatSubscriptionPassword} ${RedhatSubscriptionPoolID} "
-
                                 },
                                 "\n",
                                 "echo \"========================================================================================================================\"\n",
 
-                                "echo \"\t------------------[] Check if Subscription is Attached! if not fail Stack\"\n",
-                                "\n",
-                                "echo \" \t------------------[] Start of main execution block\"\n",
                                 "yum repolist | grep OpenShift \n",
-                                "if [[ $? == 0 ]] \n",
-                                "then \n",
-                                "echo \"\t------------------[] Starting OpenShift Configuration\" \n",
-                                "echo \"[INFO] Generating Ansible inventory \" \n",
-                                "aws s3 cp ${SCRIPT_PATH}scripts/get_nodes.py  ~/get_nodes.py \n",
-                                "pip install boto3 &> /var/log/userdata.boto3_install.log || qs_err \" boto3 install failed \"\n",
-                                "python ~/get_nodes.py ",
+                                "if [[ $? == 0 ]]; then \n",
+                                "  echo \" \t------------------[] Start of main execution block\"\n",
+                                "  echo \"\t------------------[] Starting OpenShift Configuration\" \n",
+                                "  echo \"[INFO] Generating Ansible inventory \" \n",
+                                "  aws s3 cp ${SCRIPT_PATH}scripts/get_nodes.py  ~/get_nodes.py \n",
+                                "  pip install boto3 &> /var/log/userdata.boto3_install.log || qs_err \" boto3 install failed \"\n",
+                                "  python ~/get_nodes.py ",
                                 {
                                     "Ref": "AWS::Region"
                                 }, " ",
@@ -1712,7 +1756,7 @@
                                 }, " ", "masters ",
                                 " > /tmp/openshift_instances-master",
                                 "\n",
-                                "python ~/get_nodes.py ",
+                                "  python ~/get_nodes.py ",
                                 {
                                     "Ref": "AWS::Region"
                                 }, " ",
@@ -1720,7 +1764,7 @@
                                     "Ref": "OpenShiftEtcdASG"
                                 }, " ", "etcd > /tmp/openshift_instances-etcd",
                                 "\n",
-                                "python ~/get_nodes.py ",
+                                "  python ~/get_nodes.py ",
                                 {
                                     "Ref": "AWS::Region"
                                 }, " ",
@@ -1728,8 +1772,8 @@
                                     "Ref": "OpenShiftNodeASG"
                                 }, " ", "nodes > /tmp/openshift_instances-nodes",
                                 "\n",
-                                "# Start cfn-configset [cfg_node_keys]\n",
-                                "cfn-init -v ",
+                                "  # Start cfn-configset [cfg_node_keys]\n",
+                                "  cfn-init -v ",
                                 "--stack ",
                                 {
                                     "Ref": "AWS::StackName"
@@ -1741,8 +1785,8 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "# Start cfn-configset [cfg_ansible]\n",
-                                "cfn-init -v ",
+                                "  # Start cfn-configset [cfg_ansible]\n",
+                                "  cfn-init -v ",
                                 "   --stack ",
                                 {
                                     "Ref": "AWS::StackName"
@@ -1754,90 +1798,102 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "echo \"Begin OpenShift configuration\"\n",
-                                "aws s3 cp ",
+                                "  echo \"Begin OpenShift configuration\"\n",
+                                "  aws s3 cp ",
                                 {
                                     "Fn::Sub": "s3://${QSS3BucketName}/${QSS3KeyPrefix}"
 
                                 },
                                 "scripts/openshift_config_ose.yml  ~/openshift_config.yml \n",
-                                "cat ~/openshift_config.yml >/etc/ansible/hosts \n",
-                                "echo \"", {
+                                "  cat ~/openshift_config.yml >/etc/ansible/hosts \n",
+                                "  echo \"", {
                                     "Ref": "OpenShiftOptions"
                                 },
                                 "\"",
                                 ">>/etc/ansible/hosts \n",
-                                "echo \"[INFO] Ansible Generated\" \n",
-                                "MASTER_ELBDNSNAME=",
+                                "  echo \"[INFO] Ansible Generated\" \n",
+                                "  MASTER_ELBDNSNAME=",
                                 {
                                     "Fn::GetAtt": ["OpenShiftMasterELB", "DNSName"]
                                 },
                                 "\n",
-                                "INTERNAL_MASTER_ELBDNSNAME=",
+                                "  INTERNAL_MASTER_ELBDNSNAME=",
                                 {
                                     "Fn::GetAtt": ["OpenShiftMasterInternalELB", "DNSName"]
                                 },
                                 "\n",
-                                "NODE_ELBDNSNAME=",
+                                "  NODE_ELBDNSNAME=",
                                 {
                                     "Fn::GetAtt": ["ContainerAccessELB", "DNSName"]
                                 },
                                 "\n",
-                                "echo \"[INFO] Configuring OpenShift Variable\" \n",
-                                "echo openshift_master_cluster_hostname=${INTERNAL_MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
-                                "echo openshift_master_cluster_public_hostname=${MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
-                                "echo openshift_hostname=${INTERNAL_MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
-                                "echo \"[INFO] Configured OpenShift Variable\" \n",
-                                "cat /tmp/openshift_instances-* >>/etc/ansible/hosts \n",
-                                "sed -i 's/#pipelining = False/pipelining = True/g' /etc/ansible/ansible.cfg \n",
-                                "sed -i 's/#log_path/log_path/g' /etc/ansible/ansible.cfg \n",
-                                "echo \"[INFO] Poll till all nodes are under Ansible (max tries = 50)\" \n",
-                                "qs_retry_command 50 ansible -m ping all \n",
-                                "\n",
-                                "#Install dependencies and update OS\n",
-                                "yum -y install wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct\n",
-                                "yum -y update \n",
-                                "yum -y install atomic-openshift-utils\n",
-                                "yum -y install atomic-openshift-excluder atomic-openshift-docker-excluder\n",
-                                "PLAYBOOK=\"", {
+                                "  OPENSHIFT_IMAGE_TAG=\"", {
+                                    "Ref": "OpenshiftImageTag"
+                                },
+                                "\"\n",                                
+                                "  OPENSHIFT_PKG_VERSION=\"", {
+                                    "Ref": "OpenshiftPkgVersion"
+                                },
+                                "\"\n",                                
+                                "  PLAYBOOK=\"", {
                                     "Ref": "AnsiblePlaybookType"
                                 },
                                 "\"\n",
-                                "if [ $PLAYBOOK == \"Subscription-Version\" ]; then \n",
-                                "  echo \"[INFO] Using Builtin Playbooks\"\n",
-                                "else\n",
-                                "  echo \"[INFO] Override Builtin Playbooks\" \n",
-                                "  touch ~/override_Playbooks \n",
-                                "CURRENT_PLAYBOOK_VERSION=https://github.com/openshift/openshift-ansible/archive/openshift-ansible-",
+                                "  echo \"[INFO] Configuring OpenShift Variable\" \n",
+                                "  if [ $PLAYBOOK == \"OpenSource-Version\" ]; then \n",
+                                "    echo openshift_image_tag=${OPENSHIFT_IMAGE_TAG} >> /etc/ansible/hosts \n",
+                                "    echo openshift_pkg_version=${OPENSHIFT_PKG_VERSION} >> /etc/ansible/hosts \n",
+                                "    echo openshift_deployment_type=origin >> /etc/ansible/hosts \n",
+                                "  fi \n",
+                                "  echo openshift_master_cluster_hostname=${INTERNAL_MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
+                                "  echo openshift_master_cluster_public_hostname=${MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
+                                "  echo openshift_hostname=${INTERNAL_MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
+                                "  echo \"[INFO] Configured OpenShift Variable\" \n",
+                                "  cat /tmp/openshift_instances-* >>/etc/ansible/hosts \n",
+                                "  sed -i 's/#pipelining = False/pipelining = True/g' /etc/ansible/ansible.cfg \n",
+                                "  sed -i 's/#log_path/log_path/g' /etc/ansible/ansible.cfg \n",
+                                "  echo \"[INFO] Poll till all nodes are under Ansible (max tries = 50)\" \n",
+                                "  qs_retry_command 50 ansible -m ping all \n",
+                                "\n",
+                                "  #Install dependencies and update OS\n",
+                                "  yum -y install wget git net-tools bind-utils iptables-services bridge-utils bash-completion kexec-tools sos psacct\n",
+                                "  yum -y update \n",
+                                "  if [ $PLAYBOOK == \"Subscription-Version\" ]; then \n",
+                                "    echo \"[INFO] Using Builtin Playbooks\"\n",
+                                "    yum -y install atomic-openshift-utils\n",
+                                "    yum -y install atomic-openshift-excluder atomic-openshift-docker-excluder\n",           "    atomic-openshift-excluder unexclude\n",
+                                "  else\n",
+                                "    echo \"[INFO] Override Builtin Playbooks\" \n",
+                                "    touch ~/override_Playbooks \n",
+                                "    CURRENT_PLAYBOOK_VERSION=https://github.com/openshift/openshift-ansible/archive/",
                                 {
                                     "Ref": "AnsiblePlaybookGitRepoTag"
                                 },
                                 ".tar.gz\n",
-                                "curl  --retry 5  -Ls ${CURRENT_PLAYBOOK_VERSION} -o openshift-ansible.tar.gz \n",
-                                "tar -zxf openshift-ansible.tar.gz \n",
-                                "mkdir -p /usr/share/ansible \n",
-                                "mv openshift-ansible-* /usr/share/ansible/openshift-ansible \n",
-                                "fi",
+                                "    curl  --retry 5  -Ls ${CURRENT_PLAYBOOK_VERSION} -o openshift-ansible.tar.gz \n",
+                                "    tar -zxf openshift-ansible.tar.gz \n",
+                                "    mkdir -p /usr/share/ansible \n",
+                                "    rm -fr /usr/share/ansible/openshift-ansible \n",
+                                "    mv openshift-ansible-* /usr/share/ansible/openshift-ansible \n",
+                                "  fi",
                                 "\n",
-                                "yum -y install atomic-openshift-excluder atomic-openshift-docker-excluder\n",
-                                "atomic-openshift-excluder unexclude\n",
-                                "echo \"[INFO] Starting OpenShift Cluster Build (Beginning Ansible Playbook run!!!)\" \n",
-                                "date >>~/playbooks.info\n",
-                                "ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml || qs_err \" ansible-playbook failed!! \"\n",
-                                "date >>~/playbooks.info\n",
-                                "echo \"[INFO] Finished OpenShift Cluster Build (Completed Ansible Playbook run!!!)\" \n",
+                                "  echo \"[INFO] Starting OpenShift Cluster Build (Beginning Ansible Playbook run!!!)\" \n",
+                                "  date >>~/playbooks.info\n",
+                                "  ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml || qs_err \" ansible-playbook failed!! \"\n",
+                                "  date >>~/playbooks.info\n",
+                                "  echo \"[INFO] Finished OpenShift Cluster Build (Completed Ansible Playbook run!!!)\" \n",
                                 "\n",
-                                "echo \"[INFO] Adding OpenShift Users\" \n",
-                                "ansible masters -a \"htpasswd -b /etc/origin/master/htpasswd admin ",
+                                "  echo \"[INFO] Adding OpenShift Users\" \n",
+                                "  ansible masters -a \"htpasswd -b /etc/origin/master/htpasswd admin ",
                                 {
                                     "Ref": "OpenShiftAdminPassword"
                                 }, "\"\n",
-                                "echo \"[INFO] Added OpenShift Users\" \n",
+                                "  echo \"[INFO] Added OpenShift Users\" \n",
 
-                                "echo \"[INFO] Finished OpenShift Cluster Build\" \n",
-                                "echo \"[INFO] Signaling Stack .....\"\n",
-                                "# Signal resource using [qs_status] via cfn-init\n",
-                                "cfn-signal -e $?",
+                                "  echo \"[INFO] Finished OpenShift Cluster Build\" \n",
+                                "  echo \"[INFO] Signaling Stack .....\"\n",
+                                "  # Signal resource using [qs_status] via cfn-init\n",
+                                "  cfn-signal -e $?",
                                 "   --stack ",
                                 {
                                     "Ref": "AWS::StackName"
@@ -1848,13 +1904,13 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "echo \"End cfn stack signaling\"\n",
-                                "echo \"\t#################[] End of main execution block \" \n",
+                                "  echo \"End cfn stack signaling\"\n",
+                                "  echo \"\t#################[] End of main execution block \" \n",
                                 "else\n",
-                                "echo \" \t#################[] Start of else block \" \n",
-                                "echo \"[REASON] Failed to Acquire OpenShift Entitlement, Check you PoolID and RHN UserName/Password \" >~/failure_reason\n",
-                                "echo \"[INFO] Signaling Stack .....\"\n",
-                                "cfn-signal -e 1",
+                                "  echo \" \t#################[] Start of else block \" \n",
+                                "  echo \"[REASON] Failed to Acquire OpenShift Entitlement, Check you PoolID and RHN UserName/Password \" >~/failure_reason\n",
+                                "  echo \"[INFO] Signaling Stack .....\"\n",
+                                "  cfn-signal -e 1",
                                 "   --stack ",
                                 {
                                     "Ref": "AWS::StackName"
@@ -1865,8 +1921,8 @@
                                     "Ref": "AWS::Region"
                                 },
                                 "\n",
-                                "echo \" \t#################[] End of else block \" \n",
-                                "fi\n"
+                                "  echo \" \t#################[] End of else block \" \n",
+                                "fi\n"                                
                             ]
                         ]
                     }
