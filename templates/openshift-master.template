@@ -277,19 +277,19 @@
         },
         "AnsiblePlaybookGitRepoTag": {
             "Description": "Only Used if [OpenSource-Version] is selected. List of Development Releases available here -> https://github.com/openshift/openshift-ansible/releases",
-            "Default": "release-3.6",
+            "Default": "release-3.7",
             "Type": "String"
         },
         "OpenshiftImageTag": {
             "Description": "Only Used if [OpenSource-Version] is selected. List of Docker image tags available here -> https://hub.docker.com/r/openshift/origin-deployer/tags/. Please don't forget the format vX.X.X",
-            "Default": "v3.6.0",
+            "Default": "v3.7.0",
             "Type": "String"
         },
         "OpenshiftPkgVersion": {
-            "Description": "Only Used if [OpenSource-Version] is selected. List of Pkg Version listed with yum list openshift_docker_expouse* on each Master/Node/etcd instance. Please don't forget the format -X.X.X-X.X.XXXXXX",
-            "Default": "-3.6.1-1.0.008f2d5",
+            "Description": "Only Used if [OpenSource-Version] is selected. List of Pkg Version of origin: https://github.com/openshift/origin/releases/. Please don't forget the format -X.X.X-X.X.XXXXXX the last XXXXXXX is the commit number. In this case: https://github.com/openshift/origin/commit/7ed6862914ef20e22280c51199be5071e354999f",
+            "Default": "-3.7.0-1.0.7ed6862",
             "Type": "String"
-        },        
+        },
         "VPCCIDR": {
             "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/(1[6-9]|2[0-8]))$",
             "ConstraintDescription": "CIDR block parameter must be in the form x.x.x.x/16-28",
