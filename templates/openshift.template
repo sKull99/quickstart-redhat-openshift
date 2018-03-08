@@ -1844,6 +1844,7 @@
                                 "    echo openshift_image_tag=${OPENSHIFT_IMAGE_TAG} >> /etc/ansible/hosts \n",
                                 "    echo openshift_pkg_version=${OPENSHIFT_PKG_VERSION} >> /etc/ansible/hosts \n",
                                 "    echo openshift_deployment_type=origin >> /etc/ansible/hosts \n",
+				"    echo openshift_docker_insecure_registries=172.30.0.0/16 >> /etc/ansible/hosts \n",
                                 "  fi \n",
                                 "  echo openshift_master_cluster_hostname=${INTERNAL_MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
                                 "  echo openshift_master_cluster_public_hostname=${MASTER_ELBDNSNAME} >> /etc/ansible/hosts \n",
