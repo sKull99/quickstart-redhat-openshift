@@ -88,6 +88,11 @@ def get_ip_address(instanceid, region, label):
 if __name__ == '__main__':
     nodeids = get_asg_nodes(asgname, region)
     print("[{}]".format(label))
+    if label == 'nodes':
+        with open('/tmp/openshift_instances-master') as f:
+            next(f)
+            for line in f:
+                print(line.strip())
     for node in nodeids:
         n = get_ip_address(node, region, label)
         for host_record in n:
